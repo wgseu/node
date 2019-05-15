@@ -183,4 +183,37 @@ router.put('/:tarefaId/concluido', verifyToken, function(req, res, next) {
     })
 });
 
+    // PUT /tarefas/4/concluido
+    router.delete('/:tarefaId/concluido', verifyToken, function(req, res, next) {
+      const tarefaId = req.params.tarefaId
+      const body = req.body
+      Tarefa.findOne({
+        where: {
+          id: tarefaId
+        }
+      })
+        .then(function(tarefa) {
+          if (tarefa ) {
+            if (tarefa.usuarioId === req.id) {
+              return tarefa.update({
+                concluido: false
+              })
+                .then(function (tarefaAtualizado) {
+                  const tarefaJson = tarefaAtualizado.toJSON()
+                  res.status(200).json(tarefaJson)
+                })
+    
+            } else {
+              res.status(422).send('Tarefa não pertence a esse usuario')
+            }
+          } else {
+            res.status(404).send('Tarefa não existe')
+          }
+        })
+        .catch(function (error) {
+          console.log(error)
+          res.status(422).send()
+        })
+    });
+
 module.exports = router;
