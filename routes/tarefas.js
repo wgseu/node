@@ -8,8 +8,12 @@ const { Tarefa } = require('../models/sequelize')
 // GET /tarefas
 router.get('/', verifyToken, function(req, res, next) {
     const titulo = req.query.titulo;
-  
-    const where = {};process.env.SECRET
+    const userId = req.id
+    const where = {};
+
+    if (userId) {
+      where.usuarioId = userId
+    }
     if (titulo) {
       where.titulo = {
         [Op.like]: '%' + titulo + '%'
@@ -32,13 +36,21 @@ router.get('/', verifyToken, function(req, res, next) {
 router.get('/:tarefaId', verifyToken, function(req, res, next) {
     const tarefaId = req.params.tarefaId
   
-    Tarefa.findByPk(tarefaId)
+    Tarefa.findOne({
+      where: {
+        id: tarefaId
+      }
+    })
       .then(function (tarefa) {
         if (tarefa) {
-          const tarefaJson = tarefa.toJSON()
-          res.status(200).json(tarefaJson)
+          if (tarefa.usuarioId === req.id) {
+            const tarefaJson = tarefa.toJSON()
+            res.status(200).json(tarefaJson)
+          } else {
+            res.status(404).send('Tarefa não pertence a esse usuario')
+          }
         } else {
-          res.status(404).send()
+          res.status(404).send('Tarefa não existe')
         }
       })
       .catch(function (error) {
@@ -50,48 +62,66 @@ router.get('/:tarefaId', verifyToken, function(req, res, next) {
   // DELETE /tarefas/3
 router.delete('/:tarefaId', verifyToken, function(req, res, next) {
     const tarefaId = req.params.tarefaId
-  
-    Tarefa.destroy({
+
+    Tarefa.findOne({
       where: {
         id: tarefaId
       }
     })
-      .then(function (removidos) {
-        if (removidos > 0) {
-          res.status(204).send()
+    .then( function(tarefa){
+      if(tarefa) {
+        if (tarefa.usuarioId === req.id) {
+          Tarefa.destroy({
+            where: {
+              id: tarefaId
+            }
+          })
+            .then(function (removidos) {
+              if (removidos > 0) {
+                res.status(204).send()
+              } else {
+                res.status(404).send()
+              }
+            })
+            .catch(function (error) {
+              console.log(error)
+              next(error) // delega o tratamento de erro para o express
+            })
         } else {
-          res.status(404).send()
+          res.status(404).send('Tarefa não pertence a esse usuario')
         }
-      })
-      .catch(function (error) {
-        console.log(error)
-        next(error) // delega o tratamento de erro para o express
-      })
+      } else {
+        res.status(404).send('Tarefa não existe')
+      }
+    })
   });
 
   // PUT /tarefas/4
 router.put('/:tarefaId', verifyToken, function(req, res, next) {
     const tarefaId = req.params.tarefaId
     const body = req.body
-    console.log('params', req.params)
-    console.log('reqqqqqqqqqq', req.id)
     Tarefa.findOne({
       where: {
         id: tarefaId
       }
     })
       .then(function(tarefa) {
-        if (tarefa) {
-          return tarefa.update({
-            titulo: body.titulo,
-            concluido: body.concluido
-          })
-            .then(function (tarefaAtualizado) {
-              const tarefaJson = tarefaAtualizado.toJSON()
-              res.status(200).json(tarefaJson)
+        if (tarefa ) {
+          if (tarefa.usuarioId === req.id) {
+            return tarefa.update({
+              titulo: body.titulo,
+              concluido: body.concluido
             })
+              .then(function (tarefaAtualizado) {
+                const tarefaJson = tarefaAtualizado.toJSON()
+                res.status(200).json(tarefaJson)
+              })
+
+          } else {
+            res.status(422).send('Tarefa não pertence a esse usuario')
+          }
         } else {
-          res.status(404).send()
+          res.status(404).send('Tarefa não existe')
         }
       })
       .catch(function (error) {
@@ -119,5 +149,38 @@ router.post('/', verifyToken, function (req, res, next) {
         res.status(422).send();
       })
   });
+
+    // PUT /tarefas/4/concluido
+router.put('/:tarefaId/concluido', verifyToken, function(req, res, next) {
+  const tarefaId = req.params.tarefaId
+  const body = req.body
+  Tarefa.findOne({
+    where: {
+      id: tarefaId
+    }
+  })
+    .then(function(tarefa) {
+      if (tarefa ) {
+        if (tarefa.usuarioId === req.id) {
+          return tarefa.update({
+            concluido: true
+          })
+            .then(function (tarefaAtualizado) {
+              const tarefaJson = tarefaAtualizado.toJSON()
+              res.status(200).json(tarefaJson)
+            })
+
+        } else {
+          res.status(422).send('Tarefa não pertence a esse usuario')
+        }
+      } else {
+        res.status(404).send('Tarefa não existe')
+      }
+    })
+    .catch(function (error) {
+      console.log(error)
+      res.status(422).send()
+    })
+});
 
 module.exports = router;
