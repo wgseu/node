@@ -14,7 +14,6 @@ function verifyToken (req, res, next) {
 }
 
 function signToken(id) {
-  console.log(id);
     return jwt.sign(id, process.env.SECRET)
 }
 
